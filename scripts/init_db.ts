@@ -1,3 +1,4 @@
+export {};
 require('dotenv').config();
 const { pool } = require('../config/pg');
 

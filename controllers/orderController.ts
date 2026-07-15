@@ -1,3 +1,4 @@
+export {};
 const { pool } = require('../config/pg');
 
 const getOrders = async (req, res, next) => {
