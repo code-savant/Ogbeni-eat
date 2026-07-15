@@ -1,0 +1,68 @@
+// Prisma schema for Ogbeni-eat (models mirror existing Sequelize models)
+// Note: datasource URL moved to prisma/prisma.config.ts / PRISMA_MIGRATE_URL
+
+datasource db {
+    provider = "postgresql"
+    // Connection URL moved to PRISMA_MIGRATE_URL per Prisma 7+ configuration
+}
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+model User {
+    id       Int      @id @default(autoincrement())
+    name     String
+    email    String   @unique
+    password String
+    role     UserRole @default(customer)
+    orders   Order[]
+}
+
+model Vendor {
+    id          Int     @id @default(autoincrement())
+    name        String
+    description String?
+    location    String?
+    menus       Menu[]
+    orders      Order[]
+}
+
+model Menu {
+    id          Int     @id @default(autoincrement())
+    vendorId    Int
+    name        String
+    description String?
+    price       Float
+    available   Boolean @default(true)
+    vendor      Vendor  @relation(fields: [vendorId], references: [id])
+    orders      Order[]
+}
+
+model Order {
+    id         Int         @id @default(autoincrement())
+    userId     Int
+    vendorId   Int
+    menuId     Int
+    quantity   Int         @default(1)
+    totalPrice Float
+    status     OrderStatus @default(pending)
+    user       User        @relation(fields: [userId], references: [id])
+    menu       Menu        @relation(fields: [menuId], references: [id])
+    vendor     Vendor      @relation(fields: [vendorId], references: [id])
+}
+
+enum UserRole {
+    vendor
+    customer
+    admin
+}
+
+enum OrderStatus {
+    pending
+    accepted
+    preparing
+    ready
+    completed
+    cancelled
+}

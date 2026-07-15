@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const { pool } = require('../config/pg');
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -18,19 +18,19 @@ const registerUser = async (req, res, next) => {
   try {
     const { name, email, password, role } = req.body;
 
-    const existingUser = await User.findOne({ where: { email } });
+    const { rows: existingRows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const existingUser = existingRows[0];
     if (existingUser) {
       return res.status(400).json({ message: 'Email already registered' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    const user = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-      role: role || 'customer',
-    });
+    const { rows } = await pool.query(
+      'INSERT INTO users (name, email, password, role) VALUES ($1,$2,$3,$4) RETURNING *',
+      [name, email, hashedPassword, role || 'customer']
+    );
+    const user = rows[0];
 
     res.status(201).json({
       user: {
@@ -49,7 +49,8 @@ const registerUser = async (req, res, next) => {
 const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    const user = await User.findOne({ where: { email } });
+    const { rows: found } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    const user = found[0];
 
     if (!user || !(await bcrypt.compare(password, user.password))) {
       return res.status(401).json({ message: 'Invalid credentials' });
@@ -71,15 +72,11 @@ const loginUser = async (req, res, next) => {
 
 const getMe = async (req, res, next) => {
   try {
-    const user = await User.findByPk(req.user.id);
+    const { rows } = await pool.query('SELECT id, name, email, role FROM users WHERE id = $1', [Number(req.user.id)]);
+    const user = rows[0];
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    res.json({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-    });
+    res.json(user);
   } catch (error) {
     next(error);
   }
