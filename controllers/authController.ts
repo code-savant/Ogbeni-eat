@@ -17,7 +17,15 @@ const generateToken = (user) => {
 
 const registerUser = async (req, res, next) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, location, description } = req.body;
+
+    if (role === 'admin') {
+      return res.status(400).json({ message: 'Admin role is not allowed' });
+    }
+
+    if (role !== 'vendor' && (location || description)) {
+      return res.status(400).json({ message: 'Location and description are only allowed for vendors' });
+    }
 
     const { rows: existingRows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     const existingUser = existingRows[0];
@@ -28,8 +36,15 @@ const registerUser = async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const { rows } = await pool.query(
-      'INSERT INTO users (name, email, password, role) VALUES ($1,$2,$3,$4) RETURNING *',
-      [name, email, hashedPassword, role || 'customer']
+      'INSERT INTO users (name, email, password, role, location, description) VALUES ($1,$2,$3,$4,$5,$6) RETURNING *',
+      [
+        name,
+        email,
+        hashedPassword,
+        role || 'customer',
+        role === 'vendor' ? location || null : null,
+        role === 'vendor' ? description || null : null,
+      ]
     );
     const user = rows[0];
 
@@ -39,6 +54,8 @@ const registerUser = async (req, res, next) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        location: user.location,
+        description: user.description,
       },
       token: generateToken(user),
     });
@@ -63,6 +80,8 @@ const loginUser = async (req, res, next) => {
         name: user.name,
         email: user.email,
         role: user.role,
+        location: user.location,
+        description: user.description,
       },
       token: generateToken(user),
     });
@@ -73,7 +92,7 @@ const loginUser = async (req, res, next) => {
 
 const getMe = async (req, res, next) => {
   try {
-    const { rows } = await pool.query('SELECT id, name, email, role FROM users WHERE id = $1', [Number(req.user.id)]);
+    const { rows } = await pool.query('SELECT id, name, email, role, location, description FROM users WHERE id = $1', [Number(req.user.id)]);
     const user = rows[0];
     if (!user) return res.status(404).json({ message: 'User not found' });
 

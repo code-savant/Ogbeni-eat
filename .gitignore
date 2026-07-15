@@ -7,3 +7,6 @@ yarn-error.log*
 coverage/
 logs/
 *.log
+
+# Git ignore client markdown guide containing production URL
+client.md

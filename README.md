@@ -75,7 +75,7 @@ npm run build
 
 - Method: `POST`
 - Endpoint: `/auth/register`
-- Body:
+- Body (Customer):
 
 ```json
 {
@@ -83,6 +83,19 @@ npm run build
   "email": "jane@example.com",
   "password": "password123",
   "role": "customer"
+}
+```
+
+- Body (Vendor - allows optional `location` and `description` fields):
+
+```json
+{
+  "name": "Amala Express",
+  "email": "vendor@example.com",
+  "password": "password123",
+  "role": "vendor",
+  "location": "12 Marina Road, Lagos",
+  "description": "The best amala in Lagos"
 }
 ```
 
@@ -96,7 +109,9 @@ Expected result:
     "id": 1,
     "name": "Jane Doe",
     "email": "jane@example.com",
-    "role": "customer"
+    "role": "customer",
+    "location": null,
+    "description": null
   },
   "token": "<jwt_token>"
 }
