@@ -22,10 +22,31 @@ const User = sequelize.define('User', {
     allowNull: false,
   },
   role: {
-    type: DataTypes.ENUM('vendor', 'customer', 'admin'),
+    type: DataTypes.ENUM('vendor', 'customer'),
     allowNull: false,
     defaultValue: 'customer',
   },
+  location: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  description: {
+    type: DataTypes.TEXT,
+    allowNull: true,
+  },
+}, {
+  validate: {
+    vendorFieldsOnly() {
+      if (this.role !== 'vendor') {
+        if (this.location !== undefined && this.location !== null && this.location !== '') {
+          throw new Error('Location can only be set if user role is vendor');
+        }
+        if (this.description !== undefined && this.description !== null && this.description !== '') {
+          throw new Error('Description can only be set if user role is vendor');
+        }
+      }
+    }
+  }
 });
 
 module.exports = User;

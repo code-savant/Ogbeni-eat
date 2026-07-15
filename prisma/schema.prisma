@@ -11,12 +11,14 @@ generator client {
 }
 
 model User {
-    id       Int      @id @default(autoincrement())
-    name     String
-    email    String   @unique
-    password String
-    role     UserRole @default(customer)
-    orders   Order[]
+    id          Int      @id @default(autoincrement())
+    name        String
+    email       String   @unique
+    password    String
+    role        UserRole @default(customer)
+    location    String?
+    description String?
+    orders      Order[]
 }
 
 model Vendor {
@@ -55,7 +57,6 @@ model Order {
 enum UserRole {
     vendor
     customer
-    admin
 }
 
 enum OrderStatus {
