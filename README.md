@@ -4,10 +4,11 @@ A Node.js + Express backend for the Ogbeni Eats food vendor platform.
 
 This API currently supports:
 
-- User authentication
-- Vendor CRUD
-- Menu CRUD
+- User authentication (register, login, profile)
+- Vendor CRUD (with ownership tracking)
+- Menu CRUD (with ownership checks)
 - Order CRUD for the authenticated user
+- **Admin API** — full CRUD for users, vendors, menus, and orders
 - PostgreSQL-backed persistence through the shared `pg` pool
 
 ## Base URL
@@ -20,9 +21,11 @@ http://127.0.0.1:5000/api
 
 - Express
 - PostgreSQL via `pg`
-- JWT authentication
+- JWT authentication with algorithm pinning
+- Helmet security headers
+- Rate limiting (general + auth-specific)
+- CORS with configurable origins
 - TypeScript with `tsx` for development
-- Prisma schema files are present for modeling work, but the active runtime path is currently the shared Postgres pool
 
 ## Environment variables
 
@@ -34,7 +37,10 @@ JWT_SECRET=your_jwt_secret_here
 DATABASE_URL=postgresql://USER:PASSWORD@HOST:PORT/DATABASE
 DIRECT_URL=postgresql://USER:PASSWORD@HOST:PORT/DATABASE
 NODE_ENV=development
+ALLOWED_ORIGINS=http://localhost:3000
 ```
+
+> **Important:** `JWT_SECRET` is required. The server will exit if it is not set.
 
 ## Run the project
 
@@ -55,404 +61,102 @@ Type check:
 npm run build
 ```
 
-## API overview
+## Scripts
 
-### Root health check
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server with hot reload |
+| `npm run start` | Start production server |
+| `npm run build` | Type check with TypeScript |
+| `npm test` | Run test suite |
+| `npm run seed` | Seed database with sample users and vendors |
+| `npm run seed:admin` | Seed an admin user into the database |
 
-- `GET /`
-- Base URL: `http://127.0.0.1:5000/`
-- Example response:
-
-```json
-{
-  "message": "Ogbeni Eats API is running"
-}
-```
+## API Overview
 
 ### Authentication
 
-#### 1. Register a user
-
-- Method: `POST`
-- Endpoint: `/auth/register`
-- Body:
-
-```json
-{
-  "name": "Jane Doe",
-  "email": "jane@example.com",
-  "password": "password123",
-  "role": "customer"
-}
-```
-
-Expected result:
-
-- `201 Created`
-
-```json
-{
-  "user": {
-    "id": 1,
-    "name": "Jane Doe",
-    "email": "jane@example.com",
-    "role": "customer"
-  },
-  "token": "<jwt_token>"
-}
-```
-
-#### 2. Login a user
-
-- Method: `POST`
-- Endpoint: `/auth/login`
-- Body:
-
-```json
-{
-  "email": "jane@example.com",
-  "password": "password123"
-}
-```
-
-Expected result:
-
-- `200 OK`
-
-```json
-{
-  "user": {
-    "id": 1,
-    "name": "Jane Doe",
-    "email": "jane@example.com",
-    "role": "customer"
-  },
-  "token": "<jwt_token>"
-}
-```
-
-#### 3. Get current authenticated user
-
-- Method: `GET`
-- Endpoint: `/auth/me`
-- Header:
-
-```text
-Authorization: Bearer <jwt_token>
-```
-
-Expected result:
-
-- `200 OK`
-
-```json
-{
-  "id": 1,
-  "name": "Jane Doe",
-  "email": "jane@example.com",
-  "role": "customer"
-}
-```
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/auth/register` | No | Register a new user |
+| `POST` | `/auth/login` | No | Login and receive JWT |
+| `GET` | `/auth/me` | Yes | Get current user profile |
 
 ### Vendors
 
-#### 4. Get all vendors
-
-- Method: `GET`
-- Endpoint: `/vendors`
-
-Expected result:
-
-- `200 OK`
-- Returns an array of vendor objects.
-
-#### 5. Get one vendor
-
-- Method: `GET`
-- Endpoint: `/vendors/:id`
-
-Example:
-
-```text
-GET /api/vendors/1
-```
-
-Expected result:
-
-- `200 OK`
-- Returns a single vendor object
-- `404 Not Found` if it does not exist
-
-#### 6. Create a vendor
-
-- Method: `POST`
-- Endpoint: `/vendors`
-- Body:
-
-```json
-{
-  "name": "Mama's Kitchen",
-  "description": "Home-made meals and snacks",
-  "location": "Lagos"
-}
-```
-
-Expected result:
-
-- `201 Created`
-- Returns the created vendor object
-
-#### 7. Update a vendor
-
-- Method: `PUT`
-- Endpoint: `/vendors/:id`
-- Body:
-
-```json
-{
-  "name": "Mama's Kitchen Updated",
-  "description": "Fresh local meals and snacks",
-  "location": "Abuja"
-}
-```
-
-Expected result:
-
-- `200 OK`
-- Returns the updated vendor object
-
-#### 8. Delete a vendor
-
-- Method: `DELETE`
-- Endpoint: `/vendors/:id`
-
-Expected result:
-
-- `200 OK`
-
-```json
-{
-  "message": "Vendor removed"
-}
-```
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/vendors` | No | List all vendors |
+| `GET` | `/vendors/:id` | No | Get vendor by ID |
+| `POST` | `/vendors` | Yes | Create a vendor |
+| `PUT` | `/vendors/:id` | Yes | Update a vendor (owner only) |
+| `DELETE` | `/vendors/:id` | Yes | Delete a vendor (owner only) |
 
 ### Menus
 
-#### 9. Get all menus
-
-- Method: `GET`
-- Endpoint: `/menus`
-
-Expected result:
-
-- `200 OK`
-- Returns a list of menu items
-
-#### 10. Get one menu item
-
-- Method: `GET`
-- Endpoint: `/menus/:id`
-
-Expected result:
-
-- `200 OK`
-- Returns a single menu item
-- `404 Not Found` if it does not exist
-
-#### 11. Create a menu item
-
-- Method: `POST`
-- Endpoint: `/menus`
-- Body:
-
-```json
-{
-  "vendorId": 1,
-  "name": "Jollof Rice",
-  "description": "Classic Nigerian jollof rice",
-  "price": 2500,
-  "available": true
-}
-```
-
-Expected result:
-
-- `201 Created`
-- Returns the created menu item
-
-#### 12. Update a menu item
-
-- Method: `PUT`
-- Endpoint: `/menus/:id`
-- Body:
-
-```json
-{
-  "name": "Spicy Jollof Rice",
-  "description": "Hot and delicious",
-  "price": 3000,
-  "available": true
-}
-```
-
-Expected result:
-
-- `200 OK`
-- Returns the updated menu item
-
-#### 13. Delete a menu item
-
-- Method: `DELETE`
-- Endpoint: `/menus/:id`
-
-Expected result:
-
-- `200 OK`
-
-```json
-{
-  "message": "Menu item removed"
-}
-```
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/menus` | No | List all menus |
+| `GET` | `/menus/:id` | No | Get menu by ID |
+| `POST` | `/menus` | Yes | Create a menu item |
+| `PUT` | `/menus/:id` | Yes | Update a menu (vendor owner only) |
+| `DELETE` | `/menus/:id` | Yes | Delete a menu (vendor owner only) |
 
 ### Orders
 
-Orders require a valid JWT token in the `Authorization` header.
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `GET` | `/orders` | Yes | List my orders |
+| `GET` | `/orders/:id` | Yes | Get my order by ID |
+| `POST` | `/orders` | Yes | Create an order |
+| `PUT` | `/orders/:id` | Yes | Update order status (owner only) |
 
-#### 14. Get all orders for the logged-in user
+### Admin API 🔒🔒
 
-- Method: `GET`
-- Endpoint: `/orders`
-- Header:
+All admin routes require `Authorization: Bearer <admin_token>` with `role: "admin"`.
 
-```text
-Authorization: Bearer <jwt_token>
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/admin/users` | List all users |
+| `GET` | `/admin/users/:id` | Get user by ID |
+| `PUT` | `/admin/users/:id` | Update a user |
+| `DELETE` | `/admin/users/:id` | Delete a user (non-admin only) |
+| `GET` | `/admin/vendors` | List all vendors |
+| `GET` | `/admin/vendors/:id` | Get vendor by ID |
+| `PUT` | `/admin/vendors/:id` | Update a vendor |
+| `DELETE` | `/admin/vendors/:id` | Delete a vendor |
+| `GET` | `/admin/menus` | List all menus |
+| `GET` | `/admin/menus/:id` | Get menu by ID |
+| `PUT` | `/admin/menus/:id` | Update a menu |
+| `DELETE` | `/admin/menus/:id` | Delete a menu |
+| `GET` | `/admin/orders` | List all orders |
+| `GET` | `/admin/orders/:id` | Get order by ID |
+| `PUT` | `/admin/orders/:id` | Update order status |
+| `DELETE` | `/admin/orders/:id` | Delete an order |
+
+## Security Features
+
+- **JWT Secret Validation** — Server exits if `JWT_SECRET` is not set
+- **Algorithm Pinning** — JWT tokens use HS256 only (prevents algorithm-switching attacks)
+- **Ownership Checks** — Vendors, menus, and orders can only be modified by their owners
+- **Role-Based Access** — Admin routes protected by `adminOnly` middleware
+- **Rate Limiting** — General (100/15min) and auth-specific (20/15min)
+- **Security Headers** — Helmet middleware enabled
+- **Input Validation** — Email format, password length, required fields, status enums
+- **Error Sanitization** — Internal errors hidden in production
+- **Body Size Limits** — 1MB max request body
+
+## Registration
+
+Public registration allows roles `customer` and `vendor`. The `admin` role cannot be registered publicly — admin users must be created via the seed script:
+
+```bash
+npm run seed:admin
 ```
 
-Expected result:
-
-- `200 OK`
-- Returns an array of orders belonging to the authenticated user
-
-#### 15. Get one order
-
-- Method: `GET`
-- Endpoint: `/orders/:id`
-- Header:
-
-```text
-Authorization: Bearer <jwt_token>
-```
-
-Expected result:
-
-- `200 OK`
-- Returns one order
-- `404 Not Found` if it does not exist or is not linked to the current user
-
-#### 16. Create an order
-
-- Method: `POST`
-- Endpoint: `/orders`
-- Header:
-
-```text
-Authorization: Bearer <jwt_token>
-```
-
-- Body:
-
-```json
-{
-  "vendorId": 1,
-  "menuId": 1,
-  "quantity": 2,
-  "totalPrice": 5000
-}
-```
-
-Expected result:
-
-- `201 Created`
-- Returns the created order record
-
-#### 17. Update order status
-
-- Method: `PUT`
-- Endpoint: `/orders/:id`
-- Header:
-
-```text
-Authorization: Bearer <jwt_token>
-```
-
-- Body:
-
-```json
-{
-  "status": "accepted"
-}
-```
-
-Expected result:
-
-- `200 OK`
-- Returns the updated order with the new status
-
-## Recommended Postman use case flow
-
-Use this exact sequence to test the backend from scratch:
-
-1. Register a user
-   - `POST /auth/register`
-2. Login the user
-   - `POST /auth/login`
-3. Copy the returned `token` into your Postman environment variable called `token`
-4. Create a vendor
-   - `POST /vendors`
-5. Create a menu item
-   - `POST /menus`
-6. Create an order
-   - `POST /orders`
-7. View all orders
-   - `GET /orders`
-8. Update the order status
-   - `PUT /orders/:id`
-
-## Postman setup steps
-
-1. Open Postman.
-2. Create a new collection named `Ogbeni-eat API`.
-3. Create a new environment named `Ogbeni-eat`.
-4. Add these variables:
-
-```text
-base_url = http://127.0.0.1:5000/api
-token = <paste your jwt token here>
-```
-
-5. For authenticated requests, add this header:
-
-```text
-Authorization: Bearer {{token}}
-```
-
-6. Set the request body type to `raw` and `JSON`.
-
-## Common HTTP statuses
-
-- `200 OK` — successful read or update
-- `201 Created` — successful create
-- `400 Bad Request` — invalid payload or duplicate email
-- `401 Unauthorized` — missing or invalid JWT
-- `404 Not Found` — record not found
-- `500 Internal Server Error` — server-side failure
-
-## Notes
-
-- The server currently runs on port `5000`.
-- The API is protected on order routes using JWT middleware.
-- If the database is empty, `GET /vendors`, `GET /menus`, and `GET /orders` may return `[]` until data is created.
+Default admin credentials (change in production):
+- Email: `admin@ogbenieat.com`
+- Password: `AdminPass123!`
 
 ## Models
 
@@ -460,13 +164,14 @@ Authorization: Bearer {{token}}
 
 - `id` (integer)
 - `name` (string)
-- `email` (string)
+- `email` (string, unique)
 - `password` (string, hashed)
-- `role` (`vendor`, `customer`, `admin`)
+- `role` (`customer`, `vendor`, `admin`)
 
 ### Vendor
 
 - `id` (integer)
+- `userId` (integer, nullable) — links to User who owns this vendor
 - `name` (string)
 - `description` (text)
 - `location` (string)
@@ -490,22 +195,21 @@ Authorization: Bearer {{token}}
 - `totalPrice` (float)
 - `status` (`pending`, `accepted`, `preparing`, `ready`, `completed`, `cancelled`)
 
-## Authentication
+## Testing
 
-- Uses JWT tokens.
-- Register and login endpoints return a `token`.
-- Protected routes require the header:
-  - `Authorization: Bearer <token>`
+```bash
+npm test
+```
 
-## Running locally
+Tests cover auth, vendor, menu, order, and admin endpoints using Jest + Supertest with mocked database.
 
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-2. Set up `.env` with `DATABASE_URL` and `JWT_SECRET`.
-3. Start the server:
-   ```bash
-   npm run dev
-   ```
-4. Open `http://localhost:5000`.
+## Common HTTP Statuses
+
+- `200 OK` — successful read or update
+- `201 Created` — successful create
+- `400 Bad Request` — invalid payload or duplicate email
+- `401 Unauthorized` — missing or invalid JWT
+- `403 Forbidden` — insufficient permissions (e.g., non-admin accessing admin routes)
+- `404 Not Found` — record not found
+- `429 Too Many Requests` — rate limited
+- `500 Internal Server Error` — server-side failure

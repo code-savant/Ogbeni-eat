@@ -8,8 +8,9 @@ const {
   updateVendor,
   deleteVendor,
 } = require('../controllers/vendorController');
+const { protect } = require('../middleware/authMiddleware');
 
-router.route('/').get(getVendors).post(createVendor);
-router.route('/:id').get(getVendorById).put(updateVendor).delete(deleteVendor);
+router.route('/').get(getVendors).post(protect, createVendor);
+router.route('/:id').get(getVendorById).put(protect, updateVendor).delete(protect, deleteVendor);
 
 module.exports = router;

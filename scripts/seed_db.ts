@@ -23,10 +23,12 @@ const seedData = async () => {
 
       CREATE TABLE IF NOT EXISTS vendors (
         id SERIAL PRIMARY KEY,
+        "userId" INTEGER REFERENCES users(id) ON DELETE SET NULL,
         name TEXT NOT NULL,
         description TEXT,
         location TEXT
       );
+      ALTER TABLE vendors ADD COLUMN IF NOT EXISTS "userId" INTEGER REFERENCES users(id) ON DELETE SET NULL;
     `);
 
     // 2. Hash passwords
@@ -67,13 +69,21 @@ const seedData = async () => {
 
     // Also populate vendors table to be consistent with existing backend design (since the DB schema has a separate vendors table)
     console.log('Seeding vendors table...');
+    // Link vendors to their user accounts
+    const { rows: vendorUsers } = await client.query(
+      "SELECT id, email FROM users WHERE email IN ('vendor1@ogbenieat.com', 'vendor2@ogbenieat.com')"
+    );
+    const vendorUserMap = {};
+    for (const u of vendorUsers) {
+      vendorUserMap[u.email] = u.id;
+    }
     await client.query(
-      `INSERT INTO vendors (name, description, location) VALUES 
-       ($1, $2, $3),
-       ($4, $5, $6)`,
+      `INSERT INTO vendors ("userId", name, description, location) VALUES 
+       ($1, $2, $3, $4),
+       ($5, $6, $7, $8)`,
       [
-        'Amala Express', 'The best amala in Lagos', '12 Marina Road, Lagos',
-        'Iyan Palace', 'Delicious pounded yam with rich egusi soup', '45 Toyin Street, Ikeja'
+        vendorUserMap['vendor1@ogbenieat.com'], 'Amala Express', 'The best amala in Lagos', '12 Marina Road, Lagos',
+        vendorUserMap['vendor2@ogbenieat.com'], 'Iyan Palace', 'Delicious pounded yam with rich egusi soup', '45 Toyin Street, Ikeja'
       ]
     );
 

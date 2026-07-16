@@ -1,5 +1,6 @@
 export {};
 const jwt = require('jsonwebtoken');
+const { JWT_SECRET } = require('../config/auth');
 
 const protect = (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -11,7 +12,7 @@ const protect = (req, res, next) => {
   const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
     req.user = decoded;
     next();
   } catch (error) {
@@ -19,6 +20,14 @@ const protect = (req, res, next) => {
   }
 };
 
+const adminOnly = (req, res, next) => {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ message: 'Admin access required' });
+  }
+  next();
+};
+
 module.exports = {
   protect,
+  adminOnly,
 };

@@ -2,6 +2,7 @@ export {};
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/pg');
+const { JWT_SECRET } = require('../config/auth');
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -10,14 +11,37 @@ const generateToken = (user) => {
       email: user.email,
       role: user.role,
     },
-    process.env.JWT_SECRET || 'secret',
-    { expiresIn: '7d' }
+    JWT_SECRET,
+    { expiresIn: '1d', algorithm: 'HS256' }
   );
 };
+
+const ALLOWED_ROLES = ['customer', 'vendor'];
 
 const registerUser = async (req, res, next) => {
   try {
     const { name, email, password, role } = req.body;
+
+    // Input validation
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'Name, email, and password are required' });
+    }
+    if (typeof name !== 'string' || typeof email !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ message: 'Invalid input types' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
+
+    // Role validation
+    const userRole = role || 'customer';
+    if (!ALLOWED_ROLES.includes(userRole)) {
+      return res.status(400).json({ message: 'Invalid role. Allowed roles: customer, vendor, admin' });
+    }
 
     const { rows: existingRows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     const existingUser = existingRows[0];
@@ -29,7 +53,7 @@ const registerUser = async (req, res, next) => {
 
     const { rows } = await pool.query(
       'INSERT INTO users (name, email, password, role) VALUES ($1,$2,$3,$4) RETURNING *',
-      [name, email, hashedPassword, role || 'customer']
+      [name, email, hashedPassword, userRole]
     );
     const user = rows[0];
 
@@ -50,10 +74,29 @@ const registerUser = async (req, res, next) => {
 const loginUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+
+    // Input validation
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+    if (typeof email !== 'string' || typeof password !== 'string') {
+      return res.status(400).json({ message: 'Invalid input types' });
+    }
+
     const { rows: found } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     const user = found[0];
 
-    if (!user || !(await bcrypt.compare(password, user.password))) {
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    let passwordMatch = false;
+    try {
+      passwordMatch = await bcrypt.compare(password, user.password);
+    } catch (e) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+    if (!passwordMatch) {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 

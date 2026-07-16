@@ -19,10 +19,13 @@ model User {
     location    String?
     description String?
     orders      Order[]
+    vendors     Vendor[]
 }
 
 model Vendor {
     id          Int     @id @default(autoincrement())
+    userId      Int?
+    user        User?   @relation(fields: [userId], references: [id])
     name        String
     description String?
     location    String?
@@ -57,6 +60,7 @@ model Order {
 enum UserRole {
     vendor
     customer
+    admin
 }
 
 enum OrderStatus {
