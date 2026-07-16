@@ -40,7 +40,7 @@ const registerUser = async (req, res, next) => {
     // Role validation
     const userRole = role || 'customer';
     if (!ALLOWED_ROLES.includes(userRole)) {
-      return res.status(400).json({ message: 'Invalid role. Allowed roles: customer, vendor, admin' });
+      return res.status(400).json({ message: 'Invalid role. Allowed roles: customer, vendor' });
     }
 
     const { rows: existingRows } = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
