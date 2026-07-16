@@ -75,7 +75,7 @@ npm run build
 
 - Method: `POST`
 - Endpoint: `/auth/register`
-- Body (Customer):
+- Body:
 
 ```json
 {
@@ -83,19 +83,6 @@ npm run build
   "email": "jane@example.com",
   "password": "password123",
   "role": "customer"
-}
-```
-
-- Body (Vendor - allows optional `location` and `description` fields):
-
-```json
-{
-  "name": "Amala Express",
-  "email": "vendor@example.com",
-  "password": "password123",
-  "role": "vendor",
-  "location": "12 Marina Road, Lagos",
-  "description": "The best amala in Lagos"
 }
 ```
 
@@ -109,9 +96,7 @@ Expected result:
     "id": 1,
     "name": "Jane Doe",
     "email": "jane@example.com",
-    "role": "customer",
-    "location": null,
-    "description": null
+    "role": "customer"
   },
   "token": "<jwt_token>"
 }
@@ -469,25 +454,6 @@ Authorization: Bearer {{token}}
 - The API is protected on order routes using JWT middleware.
 - If the database is empty, `GET /vendors`, `GET /menus`, and `GET /orders` may return `[]` until data is created.
 
-- Success response:
-  - `201 Created` order object
-
-#### Update order status
-
-- `PUT /api/orders/:id`
-- Description: Update the status of an order.
-- Authorization: Bearer token required.
-- Body:
-  - `status` (string, required, one of `pending`, `accepted`, `preparing`, `ready`, `completed`, `cancelled`)
-- Example:
-  ```json
-  {
-    "status": "accepted"
-  }
-  ```
-- Success response:
-  - `200 OK` updated order object
-
 ## Models
 
 ### User
@@ -540,12 +506,6 @@ Authorization: Bearer {{token}}
 2. Set up `.env` with `DATABASE_URL` and `JWT_SECRET`.
 3. Start the server:
    ```bash
-   node app.js
+   npm run dev
    ```
 4. Open `http://localhost:5000`.
-
-## Notes
-
-- Orders are tied to the authenticated user.
-- Menu items are associated with vendors using `vendorId`.
-- All protected order endpoints require a valid JWT.
